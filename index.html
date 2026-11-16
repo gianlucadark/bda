@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Bruno D'Angelis, pasticceria a Fondi</title>
+    <meta name="description" content="Bruno D'Angelis, pasticceria e caffetteria in via Madonna delle Grazie a Fondi." />
+    <meta name="theme-color" content="#1d1914" />
+    <link rel="icon" href="/img/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content="Bruno D'Angelis, pasticceria a Fondi" />
+    <meta property="og:image" content="/img/og_hero.webp" />
+    <link rel="preload" as="image" href="/img/poster_ingresso.webp" />
+  </head>
+  <body>
+    <div id="stage" aria-hidden="true">
+      <picture>
+        <source media="(max-aspect-ratio: 3/4)" srcset="/img/poster_mobile.webp" />
+        <img id="poster" src="/img/poster_ingresso.webp" alt="" />
+      </picture>
+      <canvas id="gl"></canvas>
+      <div class="vignette"></div>
+    </div>
+
+    <div id="loader" role="status">
+      <span class="visually-hidden">Caricamento</span>
+      <span class="loader-bar"><i></i></span>
+    </div>
+
+    <header class="topbar">
+      <a href="#ingresso" class="brand">Bruno D’Angelis</a>
+      <nav class="topnav" aria-label="Sezioni">
+        <a href="#creazioni">Creazioni</a>
+        <a href="#caffe">Caffetteria</a>
+        <a href="#riconoscimenti">Riconoscimenti</a>
+        <a href="#visita" class="nav-visit">Dove siamo</a>
+      </nav>
+    </header>
+
+    <main id="story">
+      <section id="ingresso" data-station="ingresso" class="panel panel--hero">
+        <div class="copy">
+          <h1>Bruno D’Angelis</h1>
+          <p class="lead">Pasticceria e caffetteria in via Madonna delle Grazie, a Fondi.</p>
+        </div>
+      </section>
+
+      <section id="sala" data-station="sala" class="panel panel--left">
+        <div class="copy">
+          <h2>La galleria</h2>
+          <p>Una sala virtuale per presentare il lavoro del laboratorio, con una creazione su ogni piedistallo.</p>
+        </div>
+      </section>
+
+      <section id="creazioni" data-station="creazioni" class="panel panel--left panel--top">
+        <div class="copy">
+          <h2>Le creazioni</h2>
+          <p>Torte, monoporzioni e piccola pasticceria.</p>
+        </div>
+      </section>
+
+      <section id="monoporzioni" data-station="cupola" class="panel panel--left">
+        <div class="copy">
+          <h2>Monoporzioni</h2>
+          <p>Dolci in formato individuale, preparati in laboratorio.</p>
+        </div>
+      </section>
+
+      <section id="torte" data-station="strati" class="panel panel--right">
+        <div class="copy">
+          <h2>Torte</h2>
+          <p>Torte da forno e torte a strati.</p>
+        </div>
+      </section>
+
+      <section id="piccola-pasticceria" data-station="tartelletta" class="panel panel--left">
+        <div class="copy">
+          <h2>Piccola pasticceria</h2>
+          <p>Frolle, crostatine e paste da vetrina.</p>
+        </div>
+      </section>
+
+      <section id="caffe" data-station="caffe" class="panel panel--right">
+        <div class="copy">
+          <h2>Al banco</h2>
+          <p>Caffetteria, sala da tè e aperitivi.</p>
+        </div>
+      </section>
+
+      <section id="riconoscimenti" data-station="riconoscimenti" class="panel panel--right">
+        <div class="copy">
+          <h2>Riconoscimenti</h2>
+          <ul class="facts">
+            <li><span>2016</span>Mondial des Arts Sucrés, Parigi. Primo posto con la squadra italiana.</li>
+            <li><span>2025</span>Targa del Comune di Fondi.</li>
+            <li><span>2026</span>Due Torte nella guida Pasticceri &amp; Pasticcerie del Gambero Rosso.</li>
+          </ul>
+          <p class="small">Formazione con CAST Alimenti, l’Atelier Luigi Biasetto e il maestro Eliseo Tonti. Responsabile di produzione da Attilio Servi a Roma, a fianco di Gianfranco Vissani.</p>
+        </div>
+      </section>
+
+      <section id="visita" data-station="visita" class="panel panel--center">
+        <div class="copy">
+          <h2>Dove siamo</h2>
+          <p class="address">Via Madonna delle Grazie, Fondi (LT)</p>
+          <p class="links">
+            <a href="https://www.google.com/maps/search/?api=1&query=Bruno+D%27Angelis+Pasticcere+Fondi" target="_blank" rel="noopener">Indicazioni stradali</a>
+            <a href="https://www.instagram.com/bruno_dangelis_pasticcere/" target="_blank" rel="noopener">Instagram</a>
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>Demo di proposta: la galleria e le creazioni sono render 3D, non prodotti reali.</p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
