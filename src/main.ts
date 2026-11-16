@@ -1,4 +1,5 @@
 import '@fontsource/cormorant-garamond/500.css'
+import '@fontsource/cormorant-garamond/latin-500-italic.css'
 import '@fontsource/jost/400.css'
 import './style.css'
 
@@ -9,18 +10,29 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { loadGallery } from './scene'
+import { createLoader } from './loader'
 import { buildPath, verticalFov, STATIONS, type CamState } from './camera-path'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#gl')!
-const poster = document.querySelector<HTMLImageElement>('#poster')!
-const loader = document.querySelector<HTMLElement>('#loader')!
-const bar = loader.querySelector<HTMLElement>('.loader-bar i')!
 const sections = [...document.querySelectorAll<HTMLElement>('[data-station]')]
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches
 const mobile = matchMedia('(max-width: 820px), (pointer: coarse)').matches
+const loader = createLoader(document.querySelector<HTMLElement>('#loader')!, reduceMotion)
 
 // ---------------------------------------------------------------- scroll morbido
 const lenis = new Lenis({ lerp: reduceMotion ? 1 : 0.085, smoothWheel: !reduceMotion })
+lenis.stop() // niente scorrimento sotto il sipario
+
+function revealPage() {
+  document.body.classList.remove('is-loading')
+  lenis.start()
+}
+
+function showFallback() {
+  loader.fail()
+  document.body.classList.add('no-webgl')
+  revealPage()
+}
 document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((a) =>
   a.addEventListener('click', (e) => {
     const el = document.querySelector<HTMLElement>(a.getAttribute('href')!)
@@ -60,8 +72,7 @@ async function start() {
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
   } catch {
-    loader.classList.add('done')
-    document.body.classList.add('no-webgl')
+    showFallback()
     return
   }
   renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -76,9 +87,8 @@ async function start() {
 
   const gallery = await loadGallery(
     renderer,
-    (p) => {
-      bar.style.transform = `scaleX(${p.toFixed(3)})`
-    },
+    // gli ultimi punti percentuali coprono la compilazione degli shader
+    (p) => loader.progress(p * 0.9),
     mobile,
   )
   scene.add(gallery.root)
@@ -232,22 +242,20 @@ async function start() {
     draw()
     if (firstFrame) {
       firstFrame = false
-      requestAnimationFrame(() => {
-        loader.classList.add('done')
-        canvas.classList.add('on')
-        setTimeout(() => poster.classList.add('off'), 1200)
-      })
+      canvas.classList.add('on')
+      // la pagina entra mentre il sipario si alza
+      loader.finish().then(revealPage)
     }
     requestAnimationFrame(frame)
   }
   // compila gli shader prima del primo fotogramma visibile
   await renderer.compileAsync(scene, camera)
+  loader.progress(0.97)
   requestAnimationFrame(frame)
 }
 
 updateUI(0)
 start().catch((err) => {
   console.error(err)
-  loader.classList.add('done')
-  document.body.classList.add('no-webgl')
+  showFallback()
 })

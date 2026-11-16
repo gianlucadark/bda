@@ -9,21 +9,35 @@
     <link rel="icon" href="/img/favicon.svg" type="image/svg+xml" />
     <meta property="og:title" content="Bruno D'Angelis, pasticceria a Fondi" />
     <meta property="og:image" content="/img/og_hero.webp" />
-    <link rel="preload" as="image" href="/img/poster_ingresso.webp" />
   </head>
-  <body>
+  <body class="is-loading">
     <div id="stage" aria-hidden="true">
-      <picture>
+      <!-- immagine fissa solo come ripiego senza WebGL: non viene scaricata finche' resta nascosta -->
+      <picture class="fallback">
         <source media="(max-aspect-ratio: 3/4)" srcset="/img/poster_mobile.webp" />
-        <img id="poster" src="/img/poster_ingresso.webp" alt="" />
+        <img id="poster" src="/img/poster_ingresso.webp" alt="" loading="lazy" />
       </picture>
       <canvas id="gl"></canvas>
       <div class="vignette"></div>
     </div>
 
     <div id="loader" role="status">
-      <span class="visually-hidden">Caricamento</span>
-      <span class="loader-bar"><i></i></span>
+      <span class="visually-hidden">Caricamento della galleria</span>
+      <div class="loader-inner" aria-hidden="true">
+        <div class="loader-ring">
+          <svg viewBox="0 0 100 100">
+            <circle class="loader-track" cx="50" cy="50" r="48" />
+            <circle class="loader-arc" cx="50" cy="50" r="48" pathLength="1" />
+          </svg>
+          <span class="loader-mono">bda</span>
+        </div>
+        <p class="loader-name"><span>Bruno D’Angelis</span></p>
+        <p class="loader-sub">Pasticceria e caffetteria · Fondi</p>
+      </div>
+      <div class="loader-foot" aria-hidden="true">
+        <span>La galleria si sta preparando</span>
+        <span class="loader-pct">000</span>
+      </div>
     </div>
 
     <header class="topbar">
