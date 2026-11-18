@@ -35,8 +35,8 @@ GROUPS = {
     "crea_matte": 4096,   # dolci: parti opache + metalli
     "crea_gloss": 4096,   # dolci e piatti lucidi (glossy live)
     "awards": 4096,       # nicchia dei riconoscimenti
-    "cafe_matte": 1024,
-    "cafe_gloss": 2048,
+    "cafe_matte": 4096,  # vassoio, pirottini, pasticcini opachi (visti da vicino)
+    "cafe_gloss": 4096,  # porcellane, glasse, olive
     "signage": 1024,
     "fixtures": 512,
 }
@@ -356,7 +356,7 @@ def cull_contacts(o):
 
 # ------------------------------------------------------------------ BAKE
 SAMPLES = {"wall_curve": 40, "floor": 160, "walls": 40, "front": 40, "awards": 48,
-           "crea_matte": 96, "crea_gloss": 96, "emit": 16, "fixtures": 32}
+           "crea_matte": 96, "crea_gloss": 96, "cafe_matte": 96, "cafe_gloss": 96, "emit": 16, "fixtures": 32}
 def setup_cycles(sc, samples):
     sc.render.engine = 'CYCLES'
     cy = sc.cycles

@@ -15,6 +15,8 @@ export interface CamState {
   shiftY: number
   fstop: number
   focus: number // distanza di messa a fuoco (m)
+  portraitYaw: number // rotazione (gradi) verso il soggetto sugli schermi verticali
+  portraitLens: number // moltiplicatore della focale sugli schermi verticali
 }
 
 interface Key {
@@ -25,6 +27,8 @@ interface Key {
   fstop: number
   focus?: number
   station?: string
+  portraitYaw?: number
+  portraitLens?: number
 }
 
 const b2t = (x: number, y: number, z: number) => new THREE.Vector3(x, z, -y)
@@ -41,6 +45,8 @@ export const STATIONS = [
   'visita',
 ] as const
 export type Station = (typeof STATIONS)[number]
+
+export const CAFE_FRAME = { back: 0.1, lens: 42, yaw: 1, pitch: 3, portraitYaw: 11, portraitLens: 1.3 }
 
 export function buildPath(m: Manifest, focusAt: (from: THREE.Vector3, dir: THREE.Vector3) => number | null) {
   const C = m.cameras
@@ -59,6 +65,24 @@ export function buildPath(m: Manifest, focusAt: (from: THREE.Vector3, dir: THREE
       focus: c.focus ?? undefined, // messa a fuoco di Blender (centro del soggetto)
       station,
       ...override,
+    }
+  }
+  /** ritocco di un'inquadratura Blender per il web: passo indietro, ottica, panoramica e inclinazione (gradi) */
+  const reframe = (k: Key, o: { back?: number; lens?: number; yaw?: number; pitch?: number; portraitYaw?: number; portraitLens?: number }): Key => {
+    const d = k.target.clone().sub(k.pos).normalize()
+    const back = o.back ?? 0
+    const pos = k.pos.clone().addScaledVector(d, -back)
+    const up = new THREE.Vector3(0, 1, 0)
+    if (o.yaw) d.applyAxisAngle(up, THREE.MathUtils.degToRad(o.yaw))
+    if (o.pitch) d.applyAxisAngle(new THREE.Vector3().crossVectors(d, up).normalize(), THREE.MathUtils.degToRad(o.pitch))
+    return {
+      ...k,
+      pos,
+      target: pos.clone().addScaledVector(d, 3),
+      lens: o.lens ?? k.lens,
+      focus: k.focus !== undefined ? k.focus + back : undefined,
+      portraitYaw: o.portraitYaw ?? 0,
+      portraitLens: o.portraitLens ?? 1,
     }
   }
   const wp = (p: [number, number, number], t: [number, number, number], lens: number, shiftY = 0): Key => ({
@@ -83,8 +107,11 @@ export function buildPath(m: Manifest, focusAt: (from: THREE.Vector3, dir: THREE
     wp([0.15, 2.6, 1.3], [0.2, 3.5, 0.95], 70),
     fromCam('Cam_04c_Dettaglio_Tartelletta', 'tartelletta'),
     wp([-0.45, 3.5, 1.2], [-1.2, 6.2, 0.6], 40),
-    wp([-0.8, 4.9, 0.95], [-1.4, 6.5, 0.5], 50),
-    fromCam('Cam_04d_Caffe', 'caffe'),
+    // ci si avvicina alla panca dal lato sinistro: l'alzatina dei pasticcini e' in primo piano
+    wp([-1.15, 4.95, 0.98], [-1.5, 6.6, 0.48], 45),
+    // natura morta del caffe': un passo indietro e ottica un poco piu' corta, per tenere dentro la coppa;
+    // in verticale la camera ruota verso l'alzatina dei pasticcini
+    reframe(fromCam('Cam_04d_Caffe', 'caffe'), CAFE_FRAME),
     wp([-0.4, 4.4, 1.4], [-2.5, 3.6, 1.45], 30),
     // come Cam_05 ma ruotata verso destra: le tavole occupano i 3/5 a sinistra, il testo sta a destra
     { ...wp([-0.3, 3.4, 1.55], [-3.75, 3.62, 1.55], 30, 0.05), fstop: 11, station: 'riconoscimenti' },
@@ -133,6 +160,8 @@ export function buildPath(m: Manifest, focusAt: (from: THREE.Vector3, dir: THREE
     out.shiftY = lerp(keys[ki].shiftY, keys[ki + 1].shiftY, kf)
     out.fstop = lerp(keys[ki].fstop, keys[ki + 1].fstop, kf)
     out.focus = lerp(keys[ki].focus!, keys[ki + 1].focus!, kf)
+    out.portraitYaw = lerp(keys[ki].portraitYaw ?? 0, keys[ki + 1].portraitYaw ?? 0, kf)
+    out.portraitLens = lerp(keys[ki].portraitLens ?? 1, keys[ki + 1].portraitLens ?? 1, kf)
     return out
   }
 

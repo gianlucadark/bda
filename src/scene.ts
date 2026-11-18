@@ -29,7 +29,7 @@ interface GroupDef { res: number; gloss: boolean; materials: Record<string, MatP
 export interface Manifest {
   groups: Record<string, GroupDef>
   cameras: Record<string, CamDef>
-  spots: { name: string; pos: number[]; dir: number[]; energy: number; color: number[]; angle: number }[]
+  spots: { name: string; pos: number[]; dir: number[]; energy: number; color: number[]; angle: number; blend?: number }[]
 }
 
 const BASE = import.meta.env.BASE_URL + 'scene/'
@@ -138,7 +138,7 @@ export async function loadGallery(
       // il liquido resta opaco (rosso profondo, lucido): cosi' entra nel buffer che il vetro rifrange
       const gm = liquid
         ? new THREE.MeshPhysicalMaterial({
-            color: new THREE.Color(c[0] * 0.32, c[1] * 0.1, c[2] * 0.1),
+            color: new THREE.Color(c[0] * 0.5, c[1] * 0.2, c[2] * 0.2), // bitter: rosso aranciato
             roughness: 0.1,
             metalness: 0,
             envMap,

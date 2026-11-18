@@ -5,13 +5,12 @@ import './style.css'
 
 import * as THREE from 'three'
 import Lenis from 'lenis'
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
-import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { loadGallery } from './scene'
 import { createLoader } from './loader'
-import { buildPath, verticalFov, STATIONS, type CamState } from './camera-path'
+import { createPost } from './post'
+import { createAtmosphere } from './atmosphere'
+import { buildPath, verticalFov, STATIONS, CAFE_FRAME, type CamState } from './camera-path'
+import { createUI } from './ui'
 
 const canvas = document.querySelector<HTMLCanvasElement>('#gl')!
 const sections = [...document.querySelectorAll<HTMLElement>('[data-station]')]
@@ -22,6 +21,7 @@ const loader = createLoader(document.querySelector<HTMLElement>('#loader')!, red
 // ---------------------------------------------------------------- scroll morbido
 const lenis = new Lenis({ lerp: reduceMotion ? 1 : 0.085, smoothWheel: !reduceMotion })
 lenis.stop() // niente scorrimento sotto il sipario
+const ui = createUI({ sections, lenis, reduceMotion, mobile })
 
 function revealPage() {
   document.body.classList.remove('is-loading')
@@ -33,14 +33,6 @@ function showFallback() {
   document.body.classList.add('no-webgl')
   revealPage()
 }
-document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((a) =>
-  a.addEventListener('click', (e) => {
-    const el = document.querySelector<HTMLElement>(a.getAttribute('href')!)
-    if (!el) return
-    e.preventDefault()
-    lenis.scrollTo(el, { duration: 2.4 })
-  }),
-)
 
 /** posizione continua tra le stazioni: 0 = ingresso, N-1 = visita.
  *  Ogni sezione "possiede" la camera quando il suo centro attraversa il centro dello schermo. */
@@ -57,20 +49,12 @@ function scrollToU(): number {
   return centers.length - 1
 }
 
-function updateUI(u: number) {
-  sections.forEach((s, i) => {
-    const d = Math.abs(u - i)
-    s.style.setProperty('--vis', String(THREE.MathUtils.clamp(1.6 - d * 2.2, 0, 1)))
-  })
-  // menu chiaro nell'anticamera (inizio e fine), scuro sulle pareti chiare della sala
-  document.body.classList.toggle('past-hero', u > 0.35 && u < sections.length - 1.45)
-}
-
 // ---------------------------------------------------------------- three.js
 async function start() {
   let renderer: THREE.WebGLRenderer
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
+    // l'antialiasing lo fa il render target MSAA della post-produzione
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' })
   } catch {
     showFallback()
     return
@@ -103,41 +87,45 @@ async function start() {
   const fixedU = params.has('u') ? parseFloat(params.get('u')!) : null
   gallery.root.updateMatrixWorld(true)
   const ray = new THREE.Raycaster()
-  const path = buildPath(gallery.manifest, (from, dir) => {
+  const hitDistance = (from: THREE.Vector3, dir: THREE.Vector3) => {
     ray.set(from, dir)
     ray.far = 20
     const hit = ray.intersectObject(gallery.root, true)[0]
     return hit ? hit.distance : null
-  })
+  }
+  let path = buildPath(gallery.manifest, hitDistance)
   if (path.stationCount !== STATIONS.length) console.warn('stazioni', path.stationCount)
 
-  const state: CamState = { pos: new THREE.Vector3(), target: new THREE.Vector3(), lens: 32, shiftY: 0, fstop: 11, focus: 3 }
-  const cur: CamState = { pos: new THREE.Vector3(), target: new THREE.Vector3(), lens: 32, shiftY: 0, fstop: 11, focus: 3 }
-  path.sample(scrollToU(), state)
-  cur.pos.copy(state.pos)
-  cur.target.copy(state.target)
-  cur.lens = state.lens
-  cur.shiftY = state.shiftY
-  cur.fstop = state.fstop
-  cur.focus = state.focus
+  const atmosphere = params.has('noatmo') ? null : createAtmosphere(gallery.manifest, hitDistance, { mobile, reduceMotion })
+  if (atmosphere) scene.add(atmosphere.group)
 
-  // ---- profondita' di campo (solo quando serve: macro sui dolci)
-  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 })
-  const composer = new EffectComposer(renderer, rt)
-  composer.addPass(new RenderPass(scene, camera))
-  const bokeh = new BokehPass(scene, camera, { focus: 1, aperture: 0, maxblur: 0.02 })
-  composer.addPass(bokeh)
-  composer.addPass(new OutputPass())
-  const bokehU = bokeh.uniforms as Record<string, THREE.IUniform>
-  /** parametri del BokehShader dalla fisica della lente (frazioni della larghezza immagine):
-   *  aperture = cerchio di confusione per metro di defocus vicino al piano di fuoco,
-   *  maxblur  = cerchio di confusione all'infinito (limite fisico dello sfocato di fondo) */
-  function dofParams() {
-    const f = cur.lens / 1000
-    const A = f / Math.max(cur.fstop, 1)
+  const mkState = (): CamState => ({ pos: new THREE.Vector3(), target: new THREE.Vector3(), lens: 32, shiftY: 0, fstop: 11, focus: 3, portraitYaw: 0, portraitLens: 1 })
+  const state = mkState()
+  const cur = mkState()
+  const snap = (u: number) => {
+    path.sample(u, state)
+    cur.pos.copy(state.pos)
+    cur.target.copy(state.target)
+    cur.lens = state.lens
+    cur.shiftY = state.shiftY
+    cur.fstop = state.fstop
+    cur.focus = state.focus
+    cur.portraitYaw = state.portraitYaw
+    cur.portraitLens = state.portraitLens
+  }
+  snap(fixedU ?? scrollToU())
+
+  const post = createPost(renderer, { mobile, debug: params.get('debug') })
+  const focusUv = new THREE.Vector2(0.5, 0.5)
+  let shiftNdc = 0
+  let resetFocus = true
+
+  /** raggio dello sfocato all'infinito (pixel): sotto il mezzo pixel la profondita' di campo non serve */
+  function backgroundBlurPx(heightPx: number) {
+    const f = lensNow / 1000
     const s = Math.max(cur.focus, f * 1.5)
-    const toUv = (coc: number) => (coc / 0.036 / 2 / 0.4) * (camera.aspect < 1 ? 1 / camera.aspect : 1)
-    return { ap: toUv((A * f) / (s * (s - f))), maxb: Math.min(toUv((A * f) / (s - f)), 0.013) }
+    const sensorH = 2 * f * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)
+    return (0.5 * ((f / Math.max(cur.fstop, 1)) * f)) / (s - f) / sensorH * heightPx
   }
 
   // leggero parallasse col puntatore (solo desktop)
@@ -149,84 +137,167 @@ async function start() {
     })
   }
 
+  let pxW = 1
+  let pxH = 1
   function resize() {
-    // altezza reale dei pannelli: serve al CSS per centrarli verticalmente
-    document.querySelectorAll<HTMLElement>('.panel .copy').forEach((c) => c.style.setProperty('--h', c.offsetHeight + 'px'))
+    ui.measure()
     const w = window.innerWidth
     const h = window.innerHeight
     renderer.setSize(w, h, false)
-    composer.setPixelRatio(renderer.getPixelRatio())
-    composer.setSize(w, h)
+    pxW = Math.round(w * renderer.getPixelRatio())
+    pxH = Math.round(h * renderer.getPixelRatio())
+    post.setSize(pxW, pxH)
     camera.aspect = w / h
   }
   window.addEventListener('resize', resize)
   resize()
 
-  function draw() {
-    const d = dofParams()
-    if (d.maxb > 0.002 && !params.has('nodof')) {
-      bokehU.focus.value = cur.focus
-      bokehU.aperture.value = d.ap
-      bokehU.maxblur.value = d.maxb
-      bokehU.aspect.value = camera.aspect
-      composer.render()
-    } else {
-      renderer.render(scene, camera)
-    }
-  }
+  const right = new THREE.Vector3()
+  const up = new THREE.Vector3(0, 1, 0)
+  const tmp = new THREE.Vector3()
+  const look = new THREE.Vector3()
+  let lensNow = 32 // focale effettiva (intro e schermi verticali compresi)
+  // carrellata d'ingresso: parte solo se la pagina si apre dall'inizio (vedi applyCamera)
+  let introAt = -1
+  const introWanted = !reduceMotion && fixedU === null && scrollToU() < 0.3
 
-  function applyCamera() {
+  function applyCamera(t: number) {
     camera.position.copy(cur.pos)
+    const dist = cur.pos.distanceTo(cur.target)
     // parallasse: piccolo spostamento laterale/verticale, proporzionale al campo inquadrato
-    const reach = 0.012 * (32 / cur.lens) * cur.pos.distanceTo(cur.target)
+    const reach = 0.012 * (32 / cur.lens) * dist
     tmp.copy(cur.target).sub(cur.pos).normalize()
     right.crossVectors(tmp, up).normalize()
     camera.position.addScaledVector(right, pointerS.x * reach).addScaledVector(up, -pointerS.y * reach * 0.6)
+    // ingresso: mentre il sipario si alza la camera avanza di qualche passo verso il portale
+    let introZoom = 1
+    if (introAt >= 0) {
+      // (l'anticamera e' profonda: indietro di poco, il resto lo fa l'ottica che si apre)
+      const p = THREE.MathUtils.clamp((performance.now() - introAt) / 4600, 0, 1)
+      const e = 1 - Math.pow(1 - p, 3)
+      camera.position.addScaledVector(tmp, -0.32 * (1 - e)).addScaledVector(up, 0.05 * (1 - e))
+      introZoom = 1 + 0.22 * (1 - e)
+      if (p >= 1) introAt = -1
+    }
+    // respiro: deriva lentissima, come una camera a mano ferma
+    if (!reduceMotion) {
+      const b = 0.0035 * (32 / cur.lens) * dist
+      camera.position
+        .addScaledVector(right, Math.sin(t * 0.31) * b + Math.sin(t * 0.83 + 1.7) * b * 0.25)
+        .addScaledVector(up, Math.sin(t * 0.23 + 0.6) * b * 0.55)
+    }
     camera.up.set(0, 1, 0)
-    camera.lookAt(cur.target)
-    camera.fov = verticalFov(cur.lens, camera.aspect)
+    // schermi verticali: dove serve la camera ruota verso il soggetto principale
+    if (camera.aspect < 1 && cur.portraitYaw !== 0) {
+      const yaw = THREE.MathUtils.degToRad(cur.portraitYaw) * THREE.MathUtils.clamp((1 - camera.aspect) / 0.55, 0, 1)
+      look.copy(cur.target).sub(camera.position).applyAxisAngle(up, yaw).add(camera.position)
+      camera.lookAt(look)
+    } else camera.lookAt(cur.target)
+    const portrait = THREE.MathUtils.clamp((1 - camera.aspect) / 0.55, 0, 1)
+    lensNow = cur.lens * introZoom * (1 + (cur.portraitLens - 1) * portrait)
+    camera.fov = verticalFov(lensNow, camera.aspect)
     camera.updateProjectionMatrix()
     // shift ottico verticale come in Blender (frazione della dimensione maggiore del sensore)
     // in verticale il testo occupa la parte bassa: il soggetto sale verso il terzo superiore
     const portraitLift = camera.aspect < 1 ? -0.55 * (1 - camera.aspect) : 0
-    const shiftNdc = 2 * cur.shiftY * Math.max(camera.aspect, 1) + portraitLift
+    shiftNdc = 2 * cur.shiftY * Math.max(camera.aspect, 1) + portraitLift
     camera.projectionMatrix.elements[9] += shiftNdc
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert()
+    // l'asse ottico cade qui sullo schermo: e' il punto che l'autofocus misura
+    focusUv.set(0.5, THREE.MathUtils.clamp(0.5 - shiftNdc / 2, 0.1, 0.9))
+  }
 
+  function draw(u: number, dt: number, t: number) {
+    const f = lensNow / 1000
+    const sensorH = 2 * f * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)
+    // vicino a una stazione vale la messa a fuoco di Blender, nei tragitti l'autofocus
+    const ds = Math.abs(u - Math.round(u))
+    const stationWeight = fixedU !== null ? 1 : 1 - THREE.MathUtils.smoothstep(ds, 0.1, 0.32)
+    if (atmosphere) {
+      const pxPerUnit = pxH / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2))
+      atmosphere.update(t, camera, pxPerUnit, renderer.getPixelRatio())
+    }
+    post.render(scene, camera, {
+      focusKeyed: cur.focus,
+      stationWeight,
+      lensMm: lensNow,
+      fstop: cur.fstop,
+      sensorH,
+      focusUv,
+      dofOn: !params.has('nodof') && backgroundBlurPx(pxH) > 0.6,
+      dt,
+      time: t,
+      reset: resetFocus,
+    })
+    resetFocus = false
   }
 
   if (import.meta.env.DEV) {
+    ;(window as any).__dbg = { scene, camera, post, atmosphere, cur }
+    ;(window as any).__reframe = (o: Partial<typeof CAFE_FRAME>) => {
+      Object.assign(CAFE_FRAME, o)
+      path = buildPath(gallery.manifest, hitDistance)
+      return JSON.stringify(CAFE_FRAME)
+    }
     // verifica visiva: renderizza la stazione u e salva il fotogramma via dev server
     ;(window as any).__shot = async (u: number, name: string, w = 1600, h = 900) => {
       renderer.setPixelRatio(1)
       renderer.setSize(w, h, false)
+      pxW = w
+      pxH = h
+      post.setSize(w, h)
       camera.aspect = w / h
-      path.sample(u, state)
-      cur.pos.copy(state.pos); cur.target.copy(state.target); cur.lens = state.lens; cur.shiftY = state.shiftY
-      cur.fstop = state.fstop; cur.focus = state.focus
+      snap(u)
       pointerS.set(0, 0)
-      composer.setSize(w, h)
-      applyCamera()
-      draw()
-      const data = canvas.toDataURL('image/jpeg', 0.9)
+      applyCamera(0)
+      resetFocus = true
+      draw(u, 1 / 60, 0)
+      const data = canvas.toDataURL('image/jpeg', 0.92)
       await fetch('/__shot?name=' + encodeURIComponent(name), { method: 'POST', body: data })
+      renderer.setPixelRatio(dpr)
       resize()
-      return 'ok ' + name + ' focus=' + cur.focus.toFixed(3) + ' lens=' + cur.lens.toFixed(1) + ' f=' + cur.fstop.toFixed(1) + ' dof=' + JSON.stringify(dofParams())
+      return 'ok ' + name + ' focus=' + cur.focus.toFixed(3) + ' lens=' + cur.lens.toFixed(1) + ' f=' + cur.fstop.toFixed(1) + ' blur=' + backgroundBlurPx(h).toFixed(1)
     }
   }
 
-  const right = new THREE.Vector3()
-  const up = new THREE.Vector3(0, 1, 0)
-  const tmp = new THREE.Vector3()
   let last = performance.now()
+  const t0 = last
   let firstFrame = true
+
+  // risoluzione adattiva: se la GPU non regge, il pixel ratio scende a gradini (e risale se c'e' margine)
+  const dprMax = Math.min(window.devicePixelRatio, maxDpr)
+  let dpr = dprMax
+  let acc = 0
+  let frames = 0
+  let settle = 2 // secondi da ignorare (compilazione, caricamento texture)
+  function adapt(dt: number) {
+    settle -= dt
+    if (settle > 0 || document.hidden) return
+    acc += dt
+    frames++
+    if (acc < 1.5) return
+    const ms = (acc / frames) * 1000
+    acc = 0
+    frames = 0
+    let next = dpr
+    if (ms > 24 && dpr > 1) next = Math.max(1, dpr - 0.25)
+    else if (ms < 13 && dpr < dprMax) next = Math.min(dprMax, dpr + 0.25)
+    if (next !== dpr) {
+      dpr = next
+      renderer.setPixelRatio(dpr)
+      resize()
+      settle = 1
+    }
+  }
 
   function frame(now: number) {
     const dt = Math.min((now - last) / 1000, 0.1)
     last = now
+    if (!firstFrame) adapt(dt)
+    const t = (now - t0) / 1000
     lenis.raf(now)
     const u = fixedU ?? scrollToU()
-    updateUI(u)
+    ui.update(u, t)
     path.sample(u, state)
     // smorzamento: la camera "insegue" il percorso, niente scatti con la rotella
     const k = reduceMotion ? 1 : 1 - Math.exp(-dt * 5.5)
@@ -236,15 +307,21 @@ async function start() {
     cur.shiftY += (state.shiftY - cur.shiftY) * k
     cur.fstop += (state.fstop - cur.fstop) * k
     cur.focus += (state.focus - cur.focus) * k
+    cur.portraitYaw += (state.portraitYaw - cur.portraitYaw) * k
+    cur.portraitLens += (state.portraitLens - cur.portraitLens) * k
     pointerS.lerp(pointer, 1 - Math.exp(-dt * 3))
 
-    applyCamera()
-    draw()
+    applyCamera(t)
+    draw(u, dt, t)
     if (firstFrame) {
       firstFrame = false
       canvas.classList.add('on')
-      // la pagina entra mentre il sipario si alza
-      loader.finish().then(revealPage)
+      // la pagina entra mentre il sipario si alza (la camera era gia' indietro di qualche passo)
+      if (introWanted) introAt = performance.now() + 1e9
+      loader.finish().then(() => {
+        if (introWanted) introAt = performance.now()
+        revealPage()
+      })
     }
     requestAnimationFrame(frame)
   }
@@ -254,7 +331,7 @@ async function start() {
   requestAnimationFrame(frame)
 }
 
-updateUI(0)
+ui.update(0, 0)
 start().catch((err) => {
   console.error(err)
   showFallback()

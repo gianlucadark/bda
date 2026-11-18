@@ -202,15 +202,15 @@
    "tris": 68123
   },
   "cafe_matte": {
-   "res": 1024,
+   "res": 4096,
    "gloss": false,
    "materials": {
     "G_cafe_matte": {}
    },
-   "tris": 738
+   "tris": 44811
   },
   "cafe_gloss": {
-   "res": 2048,
+   "res": 4096,
    "gloss": true,
    "materials": {
     "cafe_gloss__Porcellana": {
@@ -263,9 +263,103 @@
       0.1878,
       0.0116
      ]
+    },
+    "cafe_gloss__Gres_Smaltato": {
+     "rough": 0.2199999988079071,
+     "metal": 0.0,
+     "coat": 0.0,
+     "trans": 0.0,
+     "color": null
+    },
+    "cafe_gloss__Oliva_Verde": {
+     "rough": 0.20000000298023224,
+     "metal": 0.0,
+     "coat": 0.0,
+     "trans": 0.0,
+     "color": null
+    },
+    "cafe_gloss__Baba_Sciroppo": {
+     "rough": 0.1599999964237213,
+     "metal": 0.0,
+     "coat": 0.5,
+     "trans": 0.0,
+     "color": null
+    },
+    "cafe_gloss__Chicco_Cioccolato": {
+     "rough": 0.3199999928474426,
+     "metal": 0.0,
+     "coat": 0.0,
+     "trans": 0.0,
+     "color": [
+      0.0242,
+      0.008,
+      0.0037
+     ]
+    },
+    "cafe_gloss__Fondant_Caffe": {
+     "rough": 0.25999999046325684,
+     "metal": 0.0,
+     "coat": 0.0,
+     "trans": 0.0,
+     "color": [
+      0.624,
+      0.3864,
+      0.2016
+     ]
+    },
+    "cafe_gloss__Glassa_Fondente": {
+     "rough": 0.22,
+     "metal": 0.0,
+     "coat": 0.0,
+     "trans": 0.0,
+     "color": [
+      0.0137,
+      0.0044,
+      0.0021
+     ]
+    },
+    "cafe_gloss__Arancia_Candita": {
+     "rough": 0.18000000715255737,
+     "metal": 0.0,
+     "coat": 0.0,
+     "trans": 0.0,
+     "color": [
+      0.7835,
+      0.1812,
+      0.0116
+     ]
+    },
+    "cafe_gloss__Crema_Pasticcera": {
+     "rough": 0.3199999928474426,
+     "metal": 0.0,
+     "coat": 0.0,
+     "trans": 0.0,
+     "color": [
+      0.8796,
+      0.624,
+      0.1683
+     ]
+    },
+    "cafe_gloss__Lampone_Fresco": {
+     "rough": 0.2800000011920929,
+     "metal": 0.0,
+     "coat": 0.0,
+     "trans": 0.0,
+     "color": null
+    },
+    "cafe_gloss__Ciliegia_Candita": {
+     "rough": 0.10000000149011612,
+     "metal": 0.0,
+     "coat": 0.0,
+     "trans": 0.0,
+     "color": [
+      0.2051,
+      0.0024,
+      0.008
+     ]
     }
    },
-   "tris": 9412
+   "tris": 39519
   },
   "signage": {
    "res": 1024,
@@ -443,29 +537,29 @@
   },
   "Cam_04d_Caffe": {
    "pos": [
-    -0.95,
-    0.78,
-    -5.85
+    -1.68609,
+    0.77,
+    -6.08206
    ],
    "target": [
-    -1.9658,
-    0.14795,
-    -7.4527
+    -1.0833,
+    -0.15239,
+    -7.75114
    ],
    "up": [
-    -0.16918,
-    0.94875,
-    -0.26693
+    0.15666,
+    0.8873,
+    -0.43378
    ],
-   "lens": 55.0,
+   "lens": 50.0,
    "sensor": 36.0,
    "fit": "HORIZONTAL",
    "shift": [
     0.0,
     0.0
    ],
-   "fstop": 4.5,
-   "focus": 0.886002242565155
+   "fstop": 4.0,
+   "focus": 0.5561591982841492
   },
   "Cam_05_Riconoscimenti": {
    "pos": [
